@@ -7,6 +7,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 public class EchoIT {
 
@@ -15,7 +16,7 @@ public class EchoIT {
 
     @Before
     public void beforeTest() {
-        client = new ApiClient();
+        client = new ApiClient("localhost", 8080);
         client.setCredentials("user", "secret");
         client.init();
     }
@@ -23,7 +24,8 @@ public class EchoIT {
     @Test
     public void testEcho() {
         Foo request = new Foo("hoho");
-        final FooResponseWrapper responseWrapper = client.echo(request, FooResponseWrapper.class);
-        assertEquals(request, responseWrapper.getData());
+        final FooResponseWrapper response = client.echo(request, FooResponseWrapper.class);
+        assertNotNull(response);
+        assertEquals(request, response.getData());
     }
 }

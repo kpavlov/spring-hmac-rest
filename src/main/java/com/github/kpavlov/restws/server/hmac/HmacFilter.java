@@ -1,77 +1,74 @@
 package com.github.kpavlov.restws.server.hmac;
 
+import com.github.kpavlov.restws.commons.HmacSignatureBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedCredentialsNotFoundException;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.AbstractRequestLoggingFilter;
-import org.springframework.web.util.ContentCachingRequestWrapper;
+import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.xml.bind.DatatypeConverter;
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-@Component
-public class HmacFilter extends AbstractRequestLoggingFilter {
+public class HmacFilter extends OncePerRequestFilter {
 
-    public static final String API_KEY_HEADER = "X-KEY";
-    private static final String HMAC_SHA_512 = "HmacSHA512";
+    private static final Pattern AUTHORIZATION_TOKEN_PATTERN = Pattern.compile("^(\\w+) (\\S+):(\\S+):([\\S]+)$");
 
     @Autowired
     private CredentialsProvider credentialsProvider;
 
-    public HmacFilter() {
-        super();
-        setIncludePayload(true);
-    }
-
     @Override
-    protected String createMessage(HttpServletRequest request, String prefix, String suffix) {
-        return null;
-    }
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        CachingRequestWrapper requestWrapper = new CachingRequestWrapper(request);
 
-    @Override
-    protected void beforeRequest(HttpServletRequest request, String message) {
-        assert (request instanceof ContentCachingRequestWrapper);
-        ContentCachingRequestWrapper requestWrapper = (ContentCachingRequestWrapper) request;
+        final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        final String apiKey = request.getHeader(API_KEY_HEADER);
-        final String authHeader = request.getHeader("X-" + HttpHeaders.AUTHORIZATION);
-        String receivedDigest = authHeader.substring("Bearer ".length());
+        final Matcher authHeaderMatcher = AUTHORIZATION_TOKEN_PATTERN.matcher(authHeader);
+        if (!authHeaderMatcher.matches()) {
+            // invalid authorization token
+            logger.error("Bad authorization data");
+            response.sendError(HttpServletResponse.SC_NOT_ACCEPTABLE, "Bad authorization data");
+            return;
+        }
+
+        final String algorithm = authHeaderMatcher.group(1);
+        final String apiKey = authHeaderMatcher.group(2);
+        final String nonce = authHeaderMatcher.group(3);
+        final String receivedDigest = authHeaderMatcher.group(4);
 
         final byte[] apiSecret = credentialsProvider.getApiSecret(apiKey);
         if (apiSecret == null) {
             throw new PreAuthenticatedCredentialsNotFoundException("Access Denied");
         }
 
-        Mac digest = null;
-        SecretKeySpec secretKey = new SecretKeySpec(apiSecret, HMAC_SHA_512);
-        try {
-            digest = Mac.getInstance(HMAC_SHA_512);
-            digest.init(secretKey);
-            digest.update(apiKey.getBytes(StandardCharsets.UTF_8));
-            digest.update(requestWrapper.getContentAsByteArray());
-            final byte[] expectedDigest = digest.doFinal();
-            digest.reset();
+        final byte[] contentAsByteArray = requestWrapper.getContentAsByteArray();
 
-            final byte[] receivedDigestBytes = DatatypeConverter.parseHexBinary(receivedDigest);
-            if (!MessageDigest.isEqual(receivedDigestBytes, expectedDigest)) {
-                // invalid digest
-                throw new BadCredentialsException("Invalid digest");
-            }
-        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            logger.warn(e);
+        final HmacSignatureBuilder signatureBuilder = new HmacSignatureBuilder()
+                .algorithm(algorithm)
+                .scheme(request.getScheme())
+                .host(request.getServerName() + ":" + request.getServerPort())
+                .method(request.getMethod())
+                .resource(request.getRequestURI())
+                .contentType(request.getContentType())
+                .date(request.getHeader(HttpHeaders.DATE))
+                .nonce(nonce)
+                .apiKey(apiKey)
+                .apiSecret(apiSecret)
+                .payload(contentAsByteArray);
+
+        final byte[] receivedDigestBytes = DatatypeConverter.parseBase64Binary(receivedDigest);
+        if (!signatureBuilder.isHashEquals(receivedDigestBytes)) {
+            // invalid digest
+            logger.error("Invalid digest");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid authorization data");
+            return;
         }
-    }
 
-    @Override
-    protected void afterRequest(HttpServletRequest request, String message) {
-        //noop
+        filterChain.doFilter(requestWrapper, response);
     }
 }

@@ -8,6 +8,6 @@ public class HmacConfig {
 
     @Bean
     CredentialsProvider credentialsProvider() {
-        return new SimpleCredentialsProvider("api", "secret");
+        return new SimpleCredentialsProvider("user", "secret");
     }
 }
