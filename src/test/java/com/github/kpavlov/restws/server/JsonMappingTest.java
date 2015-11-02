@@ -16,7 +16,8 @@ import org.springframework.test.context.web.WebAppConfiguration;
 import java.io.IOException;
 import java.io.InputStream;
 
-import static org.junit.Assert.assertEquals;
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringApplicationConfiguration(classes = SpringRestHmacApplication.class)
@@ -24,7 +25,7 @@ import static org.junit.Assert.assertEquals;
 public class JsonMappingTest {
 
     @Autowired
-    ObjectMapper objectMapper;
+    private ObjectMapper objectMapper;
 
     private <T> T parseJson(String resource, Class<? extends T> target) throws IOException {
         InputStream inputStream = getClass().getResourceAsStream(resource);
@@ -41,22 +42,9 @@ public class JsonMappingTest {
         final Foo foo = new Foo("aa");
         AbstractResponseWrapper<Foo> pw = new FooResponseWrapper();
         pw.setData(foo);
-//        objectMapper.enable(DeserializationFeature.UNWRAP_ROOT_VALUE);
-//        objectMapper.enable(SerializationFeature.WRAP_ROOT_VALUE);
         final String str = objectMapper.writeValueAsString(new FooRequestWrapper(foo));
-//        final String str = objectMapper.writeValueAsString(foo);
-        System.out.println("str = " + str);
 
         final Foo foo2 = objectMapper.readValue(str, FooRequestWrapper.class).getData();
-        assertEquals(foo.getName(), foo2.getName());
-        assertEquals(str, foo2.getName());
-//		final AbstractResponseWrapper<OrderStatusResource> result = parseJson("/api/v2/payout-response-success.json", new TypeReference<AbstractResponseWrapper<OrderStatusResource>>() {
-//		});
+        assertThat(foo2.getName(), is(foo.getName()));
     }
-
-
-    @Test
-    public void contextLoads() {
-    }
-
 }
