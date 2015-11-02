@@ -2,6 +2,7 @@ package com.github.kpavlov.restws.server.controller;
 
 import com.github.kpavlov.restws.server.model.*;
 import com.github.kpavlov.restws.server.model.Error;
+import org.slf4j.Logger;
 import org.springframework.http.MediaType;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,9 +13,13 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
+import static org.slf4j.LoggerFactory.getLogger;
+
+@SuppressWarnings("unused")
 @RestController
 public class EchoController {
 
+    private final Logger logger = getLogger(EchoController.class);
 
     @RequestMapping(value = "/api/echo",
             method = RequestMethod.POST,
@@ -29,6 +34,7 @@ public class EchoController {
         final AbstractResponseWrapper<Foo> response = new FooResponseWrapper();
 
         if (bindingResult.hasErrors()) {
+            logger.debug("bindingResult.errors = {}", bindingResult.getFieldErrors());
 
             bindingResult.getFieldErrors().forEach(e -> {
                 final Error error = new Error();
@@ -42,12 +48,9 @@ public class EchoController {
             return response;
         }
 
-        System.out.println("request = " + request);
+        logger.trace("request = {}", request);
 
         response.setData(request.getData());
-
-        System.out.println("bindingResult = " + bindingResult.getFieldErrors());
-
 
         return response;
     }
