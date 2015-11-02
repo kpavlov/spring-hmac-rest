@@ -27,6 +27,13 @@ public class HmacFilter extends OncePerRequestFilter {
         CachingRequestWrapper requestWrapper = new CachingRequestWrapper(request);
 
         final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authHeader == null) {
+            // invalid authorization token
+            logger.error("Authorization header is missing");
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+
+        }
 
         final Matcher authHeaderMatcher = AUTHORIZATION_TOKEN_PATTERN.matcher(authHeader);
         if (!authHeaderMatcher.matches()) {
