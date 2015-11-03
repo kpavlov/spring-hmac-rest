@@ -15,7 +15,12 @@ import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class HmacFilter extends OncePerRequestFilter {
+/**
+ * Restricts access to resource if HMAC signature is not valid.
+ * <p>
+ * This filter does not provide Spring {@link org.springframework.security.core.context.SecurityContext} down to filter chain.
+ */
+public class HmacAccessFilter extends OncePerRequestFilter {
 
     private static final Pattern AUTHORIZATION_TOKEN_PATTERN = Pattern.compile("^(\\w+) (\\S+):(\\S+):([\\S]+)$");
 
@@ -24,7 +29,6 @@ public class HmacFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        CachingRequestWrapper requestWrapper = new CachingRequestWrapper(request);
 
         final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (authHeader == null) {
@@ -53,6 +57,7 @@ public class HmacFilter extends OncePerRequestFilter {
             throw new PreAuthenticatedCredentialsNotFoundException("Access Denied");
         }
 
+        CachingRequestWrapper requestWrapper = new CachingRequestWrapper(request);
         final byte[] contentAsByteArray = requestWrapper.getContentAsByteArray();
 
         final HmacSignatureBuilder signatureBuilder = new HmacSignatureBuilder()

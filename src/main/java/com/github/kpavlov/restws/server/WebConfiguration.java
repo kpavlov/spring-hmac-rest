@@ -1,6 +1,6 @@
 package com.github.kpavlov.restws.server;
 
-import com.github.kpavlov.restws.server.hmac.HmacFilter;
+import com.github.kpavlov.restws.server.hmac.HmacAccessFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupport;
@@ -9,7 +9,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurationSupp
 public class WebConfiguration extends WebMvcConfigurationSupport {
 
     @Bean
-    HmacFilter hmacFilter() {
-        return new HmacFilter();
+    HmacAccessFilter hmacFilter() {
+        return new HmacAccessFilter();
     }
 }
