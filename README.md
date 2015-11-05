@@ -79,7 +79,7 @@ $header = 'Authorization: HmacSHA512 ' . $api_key . ':' . $nonce . ':' . base64_
 echo $header;
 ~~~
 
-See [ApiClientTest](blob/master/src/test/php/ApiClientTest.php)
+See [ApiClientTest](src/test/php/ApiClientTest.php)
 
 ## Links
 
